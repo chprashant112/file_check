@@ -1,0 +1,219 @@
+import sys
+import pandas as pd
+import os
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QPushButton, QFileDialog, QTableWidget, 
+                             QTableWidgetItem, QComboBox, QTextEdit, QLabel, QHeaderView)
+from PyQt6.QtCore import Qt
+from datetime import datetime
+
+class ProfessionalAuditor(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Professional Version Sync & Auditor")
+        self.resize(1400, 900)
+        
+        self.loaded_data = {}  
+        self.init_ui()
+
+    def init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+
+        # --- STEP 1: LOAD & SELECT ---
+        top_bar = QHBoxLayout()
+        self.btn_load = QPushButton("Step 1: Load CSV Files")
+        self.btn_load.clicked.connect(self.handle_file_loading)
+        self.btn_load.setStyleSheet("background-color: #0078d4; color: white; padding: 10px; font-weight: bold; border-radius: 4px;")
+        
+        self.base_file_combo = QComboBox()
+        self.upgrade_file_combo = QComboBox()
+        
+        # Auto-update previews when selection changes
+        self.base_file_combo.currentTextChanged.connect(self.sync_interface)
+        self.upgrade_file_combo.currentTextChanged.connect(self.sync_interface)
+
+        top_bar.addWidget(self.btn_load)
+        top_bar.addWidget(QLabel("<b>Base File:</b>"))
+        top_bar.addWidget(self.base_file_combo)
+        top_bar.addWidget(QLabel("<b>Upgraded File:</b>"))
+        top_bar.addWidget(self.upgrade_file_combo)
+        main_layout.addLayout(top_bar)
+
+        # --- PROFESSIONAL DUAL PREVIEW ---
+        # Fixed the problem where you could only see one file preview at a time
+        preview_layout = QHBoxLayout()
+        
+        # Base Preview
+        base_box = QVBoxLayout()
+        base_box.addWidget(QLabel("Base File Preview (Top 5 Rows):"))
+        self.base_table = QTableWidget()
+        self.base_table.setMaximumHeight(180)
+        self.base_table.setAlternatingRowColors(True)
+        base_box.addWidget(self.base_table)
+        
+        # Upgraded Preview
+        upgrade_box = QVBoxLayout()
+        upgrade_box.addWidget(QLabel("Upgraded File Preview (Top 5 Rows):"))
+        self.upgrade_table = QTableWidget()
+        self.upgrade_table.setMaximumHeight(180)
+        self.upgrade_table.setAlternatingRowColors(True)
+        upgrade_box.addWidget(self.upgrade_table)
+        
+        preview_layout.addLayout(base_box)
+        preview_layout.addLayout(upgrade_box)
+        main_layout.addLayout(preview_layout)
+
+        # --- STEP 2: MAPPING SECTION ---
+        # Removed "SV1 Column" and "SV2 Column" labels as requested
+        mapping_layout = QVBoxLayout()
+        mapping_layout.setContentsMargins(0, 10, 0, 0)
+        mapping_layout.addWidget(QLabel("<b>Step 2: Map Columns for Comparison (Base Column → Upgraded Column)</b>"))
+        
+        mapping_controls = QHBoxLayout()
+        self.base_col_picker = QComboBox()
+        self.upgrade_col_picker = QComboBox()
+        self.btn_add_pair = QPushButton("Add Mapping Pair")
+        self.btn_add_pair.clicked.connect(self.add_mapping_row)
+        self.btn_add_pair.setStyleSheet("padding: 5px; background-color: #f0f0f0; border: 1px solid #ccc;")
+        
+        mapping_controls.addWidget(self.base_col_picker)
+        mapping_controls.addWidget(QLabel("→"))
+        mapping_controls.addWidget(self.upgrade_col_picker)
+        mapping_controls.addWidget(self.btn_add_pair)
+        
+        self.mapping_list_table = QTableWidget(0, 2)
+        self.mapping_list_table.setHorizontalHeaderLabels(["Base Column", "Upgraded Column"])
+        self.mapping_list_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.mapping_list_table.setMaximumHeight(120)
+
+        mapping_layout.addLayout(mapping_controls)
+        mapping_layout.addWidget(self.mapping_list_table)
+        main_layout.addLayout(mapping_layout)
+
+        # --- LOG & ACTION ---
+        self.console_log = QTextEdit()
+        self.console_log.setReadOnly(True)
+        self.console_log.setStyleSheet("background-color: #1a1a1a; color: #00ff00; font-family: 'Consolas';")
+
+        self.btn_execute = QPushButton("Step 3: RUN COMPARISON & GENERATE EXCEL REPORT")
+        self.btn_execute.setFixedHeight(60)
+        self.btn_execute.setStyleSheet("background-color: #107c10; color: white; font-weight: bold; font-size: 14px; border-radius: 4px;")
+        self.btn_execute.clicked.connect(self.run_audit_process)
+
+        main_layout.addWidget(self.console_log)
+        main_layout.addWidget(self.btn_execute)
+
+    def handle_file_loading(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select CSV Files", "", "CSV Files (*.csv)")
+        if files:
+            self.base_file_combo.clear()
+            self.upgrade_file_combo.clear()
+            for f in files:
+                name = os.path.basename(f)
+                self.loaded_data[name] = pd.read_csv(f)
+            
+            self.base_file_combo.addItems(self.loaded_data.keys())
+            self.upgrade_file_combo.addItems(self.loaded_data.keys())
+            self.console_log.append(f"System: Successfully loaded {len(files)} files.")
+
+    def sync_interface(self):
+        """Updates previews and column selectors based on current file choices."""
+        base_name = self.base_file_combo.currentText()
+        up_name = self.upgrade_file_combo.currentText()
+        
+        # Update Table Previews
+        self.populate_preview(base_name, self.base_table)
+        self.populate_preview(up_name, self.upgrade_table)
+        
+        # Update Mapping Dropdowns
+        if base_name in self.loaded_data and up_name in self.loaded_data:
+            self.base_col_picker.clear()
+            self.upgrade_col_picker.clear()
+            self.base_col_picker.addItems(list(self.loaded_data[base_name].columns))
+            self.upgrade_col_picker.addItems(list(self.loaded_data[up_name].columns))
+
+    def populate_preview(self, name, table):
+        if name in self.loaded_data:
+            df = self.loaded_data[name].head(5)
+            table.setRowCount(df.shape[0])
+            table.setColumnCount(df.shape[1])
+            table.setHorizontalHeaderLabels(df.columns)
+            for i in range(df.shape[0]):
+                for j in range(df.shape[1]):
+                    table.setItem(i, j, QTableWidgetItem(str(df.iloc[i, j])))
+
+    def add_mapping_row(self):
+        b_col = self.base_col_picker.currentText()
+        u_col = self.upgrade_col_picker.currentText()
+        if b_col and u_col:
+            row = self.mapping_list_table.rowCount()
+            self.mapping_list_table.insertRow(row)
+            self.mapping_list_table.setItem(row, 0, QTableWidgetItem(b_col))
+            self.mapping_list_table.setItem(row, 1, QTableWidgetItem(u_col))
+
+    def run_audit_process(self):
+        b_name = self.base_file_combo.currentText()
+        u_name = self.upgrade_file_combo.currentText()
+        
+        if not b_name or not u_name:
+            self.console_log.append("Error: Please select both Base and Upgraded files.")
+            return
+
+        mappings = []
+        for r in range(self.mapping_list_table.rowCount()):
+            mappings.append((self.mapping_list_table.item(r, 0).text(), 
+                             self.mapping_list_table.item(r, 1).text()))
+
+        if not mappings:
+            self.console_log.append("Error: No column mappings defined.")
+            return
+
+        # LOGIC: Comparison
+        df_b = self.loaded_data[b_name].dropna()
+        df_u = self.loaded_data[u_name].dropna()
+
+        # Assuming first column is the Unique ID (Primary Key)
+        id_col_b, id_col_u = df_b.columns[0], df_u.columns[0]
+        
+        keys_b = set(df_b[id_col_b].astype(str))
+        keys_u = set(df_u[id_col_u].astype(str))
+        
+        # 1. Missing / New Detection
+        missing = pd.DataFrame({"Missing_in_Upgraded": list(keys_b - keys_u)})
+        new_items = pd.DataFrame({"New_in_Upgraded": list(keys_u - keys_b)})
+
+        # 2. Value Variance Detection
+        common_ids = keys_b.intersection(keys_u)
+        df_b_com = df_b[df_b[id_col_b].astype(str).isin(common_ids)].set_index(id_col_b)
+        df_u_com = df_u[df_u[id_col_u].astype(str).isin(common_ids)].set_index(id_col_u)
+
+        variances = []
+        for uid in common_ids:
+            for b_col, u_col in mappings:
+                v_b = df_b_com.loc[uid, b_col]
+                v_u = df_u_com.loc[uid, u_col]
+                if str(v_b) != str(v_u):
+                    variances.append({
+                        "ID": uid,
+                        "Field": f"{b_col} -> {u_col}",
+                        "Base_Value": v_b,
+                        "Upgraded_Value": v_u
+                    })
+
+        # EXPORT
+        output_name = f"Audit_Report_{datetime.now().strftime('%H%M%S')}.xlsx"
+        with pd.ExcelWriter(output_name) as writer:
+            pd.DataFrame(variances).to_excel(writer, sheet_name="Variances", index=False)
+            missing.to_excel(writer, sheet_name="Removed_Items", index=False)
+            new_items.to_excel(writer, sheet_name="New_Items", index=False)
+
+        self.console_log.append(f"SUCCESS: Comparison complete. Report saved as {output_name}")
+        os.startfile(output_name)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = ProfessionalAuditor()
+    window.show()
+    sys.exit(app.exec())
