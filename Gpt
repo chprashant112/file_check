@@ -1,0 +1,370 @@
+Yes. The slides are jumping directly into the PCA derivation, so without a solid understanding of:
+vector → matrix → dot product → variance/covariance → covariance matrix → eigenvector/eigenvalue → projection
+the equations look disconnected.
+Let’s build the whole intuition from zero and then come back to exactly what those four slides are doing.
+1. First: what problem is PCA trying to solve?
+Imagine you have many images of a phone back glass.
+Suppose for simplicity each image has only 2 pixels:
+Each image is therefore just a point in a 2D space.
+For example:
+These points lie approximately along:
+So although the data has 2 dimensions, most of its variation is actually happening along one direction.
+PCA asks:
+Can I find the directions in which my data varies the most?
+Those directions are the principal components.
+2. What exactly is a vector?
+A vector is simply a collection of numbers representing one point/object.
+For our image:
+If the image has 1 million pixels:
+So an image can be treated as one huge vector.
+For a grayscale image:
+For RGB, you can similarly arrange all channel values into one vector.
+3. What is a dot product?
+This is extremely important for PCA.
+Suppose:
+and
+Then
+This gives the component of � along direction �.
+That's why the slide says:
+The dot product is basically asking:
+"How much of this vector is present in this particular direction?"
+4. Geometric meaning of dot product
+Suppose
+This points horizontally.
+For a point
+the horizontal component is 3.
+If instead
+then � points diagonally at 45°.
+Now
+So we have measured how much of � exists along that diagonal direction.
+This operation is called a projection.
+5. Now understand variance
+Suppose we have many data points.
+Example:
+Their mean is:
+Differences from mean:
+Variance tells us:
+How spread out are the values?
+Large variance → lots of variation.
+Small variance → values are close together.
+6. Why does PCA care about variance?
+Imagine these points:
+          •
+       •
+    •
+ •
+There is very large variation in the diagonal direction.
+But very little variation perpendicular to it.
+So instead of describing the data using the original horizontal/vertical coordinate system, PCA says:
+"Let's rotate our coordinate system so that the first axis follows the direction where the data varies the most."
+That new axis is:
+and is called the first principal component direction.
+7. Now the important concept: covariance
+Variance tells us how one variable varies.
+Covariance tells us how two variables vary together.
+Suppose:
+and
+When � increases, � also increases.
+So covariance is positive.
+If:
+then when � increases, � decreases.
+Covariance becomes negative.
+So intuitively:
+Covariance
+Meaning
+Positive
+variables increase together
+Negative
+one increases while other decreases
+Near 0
+little linear relationship
+8. Covariance matrix
+Now suppose every sample has two variables:
+Then covariance matrix is:
+For example:
+Interpret this carefully:
+�: variance of first dimension
+�: variance of second dimension
+�: strong positive covariance between them
+So the two dimensions tend to move together.
+That's why the point cloud tends to be elongated diagonally.
+9. Why covariance matrix is central to PCA
+This is the key intuition.
+The covariance matrix contains information about:
+how the data is distributed and in which directions it varies.
+PCA wants to find directions of maximum variance.
+And the covariance matrix encodes exactly that directional variance information.
+This leads us to eigenvectors.
+10. First understand a normal matrix transformation
+Take:
+and vector
+Then:
+The direction changed.
+But some special vectors don't change direction after matrix multiplication.
+For example:
+Then:
+The direction remains the same.
+Only its magnitude changes.
+This is an eigenvector.
+11. Eigenvector and eigenvalue
+The defining equation is:
+where:
+� = matrix
+� = eigenvector
+� = eigenvalue
+Meaning:
+Matrix � acts on �, but instead of rotating it into another direction, it only scales it.
+Example:
+For
+we get:
+so
+For
+we get:
+so
+12. Now the magic connection to PCA
+Our covariance matrix was:
+Its eigenvectors are:
+and
+with eigenvalues:
+Look at the directions:
+�
+This points diagonally upward.
+�
+This points diagonally downward.
+So the covariance matrix has naturally discovered the two important directions of the data.
+13. What does the eigenvalue mean here?
+This is the most important PCA intuition.
+For the first direction:
+For the second:
+The first direction has much more variance.
+Therefore:
+because it is the direction corresponding to the largest eigenvalue.
+So:
+Eigenvector = direction
+Eigenvalue = amount of variance along that direction
+That is the central idea of PCA.
+14. Why specifically covariance matrix eigenvectors?
+Let's mathematically ask:
+"What is the variance if I project my data onto some arbitrary unit direction �?"
+Projection:
+Variance of projection:
+For mean-centered data:
+So:
+Rewrite:
+and therefore:
+Taking expectation:
+Define covariance matrix:
+Then:
+This is exactly what your second slide is deriving.
+15. So what does � mean?
+This expression:
+means:
+variance of the data after projecting it onto direction �
+So PCA now has a very clear objective:
+In plain English:
+Find the direction in which the projected data has maximum variance.
+That's PCA.
+16. But there is a problem
+Suppose I choose:
+instead of:
+The direction is the same, but the magnitude is 10× larger.
+Then projection also becomes 10× larger.
+Its variance becomes 100× larger.
+So I could keep increasing the size of � and artificially increase the objective.
+That's useless.
+Therefore we force:
+This means � must have unit length.
+Now PCA is truly asking:
+Among all possible directions of unit length, which one gives maximum variance?
+17. This gives the optimization problem
+Exactly like the slide:
+Now we use a Lagrange multiplier:
+Taking derivative with respect to �:
+Therefore:
+And suddenly:
+This is exactly the eigenvalue equation.
+So PCA didn't randomly decide to use eigenvectors.
+The mathematics of maximizing projected variance naturally produces the eigenvalue problem.
+18. And now the final connection
+We started with:
+which became:
+which led to:
+So:
+And:
+19. Why choose the maximum eigenvalue?
+Suppose the covariance matrix gives:
+Then:
+direction � → variance 7
+direction � → variance 1
+Therefore the first principal component is:
+because it captures the greatest variation.
+Then the second principal component is the next orthogonal direction:
+with the next largest eigenvalue.
+Thus generally:
+and corresponding eigenvectors:
+20. Why are they orthogonal?
+For a covariance matrix, � is symmetric:
+Symmetric matrices have orthogonal eigenvectors corresponding to distinct eigenvalues.
+So:
+and after normalizing them:
+This is what the first slide means by orthonormal basis.
+21. Now come back to your image problem
+Suppose you have:
+images.
+Each mean-subtracted image is:
+where � is number of pixels/features.
+So:
+are all � vectors.
+Put them side by side:
+Therefore:
+This is exactly the fourth slide.
+22. Covariance matrix from these images
+For mean-centered data:
+More precisely, depending on the covariance convention:
+or sample covariance:
+The slide is suppressing that normalization and writes:
+Conceptually the important part is:
+because this captures how the image features/pixels vary together.
+23. What does � look like for an image?
+Suppose an image has:
+pixels.
+Then:
+and:
+Entry � tells us approximately:
+"How much do pixel � and pixel � vary together across all training images?"
+So the covariance matrix contains relationships between image dimensions.
+24. What is an eigenvector of this covariance matrix?
+Suppose:
+Then:
+has 1000 elements.
+So it can actually be reshaped back into:
+if the original image had 1000 dimensions arranged that way, or more generally into the original image layout.
+This is why in image PCA, eigenvectors are often called:
+eigenimages / principal components / principal directions
+because they themselves have an image-like structure.
+25. Projection coefficient
+Now take a new mean-subtracted image:
+and principal component:
+The coefficient is:
+This says:
+How strongly does image � contain the pattern represented by principal component �?
+For example:
+means that image has a strong positive projection along PC1.
+26. Reconstruction
+Suppose we keep only � principal components.
+Then:
+This is the first slide.
+Meaning:
+Instead of storing the entire image vector, represent it as a combination of a small number of important directions.
+For example, instead of:
+pixel values, perhaps you can represent important variation using:
+principal-component coefficients.
+27. This is dimensionality reduction
+Original image:
+PCA finds:
+where:
+Then image becomes approximately:
+Instead of working in an �-dimensional space, we work with:
+28. The whole pipeline
+Now connect everything:
+Many images
+     ↓
+Convert each image to vector
+     ↓
+Mean subtraction
+     ↓
+Build F
+     ↓
+Compute covariance matrix R
+     ↓
+Solve
+        R e = λ e
+     ↓
+Get eigenvectors + eigenvalues
+     ↓
+Sort eigenvalues largest → smallest
+     ↓
+e₁ = direction of maximum variance
+e₂ = direction of second-most variance
+e₃ = direction of third-most variance
+...
+     ↓
+Project image:
+pₖ = eₖᵀ f
+     ↓
+Use p₁,p₂,...,pₖ as compact representation
+29. The single most important mental picture
+Imagine your training images as a cloud of points.
+For 2D:
+                •
+             •
+          •
+       •
+    •
+ •
+The cloud is elongated in one direction.
+PCA finds:
+          ↗ e₁
+        /
+      /
+    /
+  /
+This � is the direction of maximum spread.
+Then:
+          ↗ e₁
+          |
+          |
+          ⟂
+          |
+          ↘ e₂
+� captures the remaining variation orthogonally.
+The lengths of the spreads are related to:
+So visually:
+30. One subtle but very important point
+Don't think:
+"One eigenvector detects one specific semantic feature."
+That's not necessarily true.
+For example, in image PCA, PC1 does not automatically mean "scratch", PC2 does not automatically mean "dent", etc.
+They are mathematically determined directions of maximum variance in the dataset.
+Those directions may correspond to meaningful visual patterns, but PCA itself doesn't know the semantic meaning.
+That's different from a supervised CNN, where learned features can become useful for classification/detection.
+31. Now map this to the exact four slides
+Slide 1
+Means:
+Represent each image as a combination of principal directions.
+and
+means:
+coefficient = projection of image onto that principal direction.
+Slide 2
+Means:
+The variance of the image data after projecting onto direction � is �.
+So we want the direction � that gives maximum value.
+Slide 3
+subject to
+Means:
+Find the unit direction with maximum projected variance.
+The optimization produces:
+Therefore:
+The required direction is an eigenvector of �.
+And the direction with the largest eigenvalue is PC1.
+Slide 4
+then:
+then solve:
+then obtain:
+These form the principal-component basis.
+32. The entire idea in one sentence
+PCA does this:
+And mathematically:
+with:
+One final connection to your Computer Vision work
+Suppose your phone inspection images contain variation due to:
+illumination
+phone surface texture
+reflections
+scratches
+dents
+manufacturing variation
+PCA looks at the distribution of all images and discovers the dominant directions of variation.
+So you can conceptually think:
+That is the bridge between the basic linear algebra and the slides you uploaded.
+The next thing worth doing is a complete numerical PCA example with 5 actual 2D points, where we calculate the mean, covariance matrix, eigenvalues, eigenvectors, projection, and reconstruction by hand. That will make every equation in these slides concrete.
